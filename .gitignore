@@ -4,6 +4,9 @@ __pycache__/
 *$py.class
 *nohup.out
 
+# Misc.
+LOCAL/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

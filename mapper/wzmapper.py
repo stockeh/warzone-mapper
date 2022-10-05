@@ -11,12 +11,15 @@ class Stitch():
 
     def __init__(self, capfilename, bgfilename, capture_rate=1, max_frames=-1,
                  mini_params=((27, 286), (41, 300)), method='sift') -> None:
-
+        # stock mini_params (21, 191), (29, 199)
+        # huskerrs mini_params (27, 286), (41, 300)
         self.capfilename = capfilename
         self.bgfilename = bgfilename
 
         # dimensions for verdansk map
-        self.bgimage = cv2.imread(bgfilename)[240:1720, 280:1660]
+        self.bgimage = cv2.imread(bgfilename)
+        if 'verdansk' in bgfilename:
+            self.bgimage = self.bgimage[240:1720, 280:1660]
 
         self.images = self._video_to_images(
             mini_params, capture_rate, max_frames)
@@ -97,6 +100,8 @@ class Stitch():
 
         good_matches = []
         for m, n in matches:
+            # TODO: is 0.7 enough for the Caldera map?
+            # Can’t find enough keypoints - only have 0.
             if m.distance < 0.7*n.distance:
                 good_matches.append([m])
 
@@ -107,6 +112,8 @@ class Stitch():
             ax.imshow(cv2.cvtColor(img3, cv2.COLOR_BGR2RGB))
             ax.axis('off')
             plt.show()
+            # fig.savefig('../media/knnvectors.png',
+            #             dpi=300, bbox_inches='tight')
 
         if len(good_matches) > 3:
             kp1 = iset1['kp']
@@ -140,7 +147,7 @@ class Stitch():
 
         return warps
 
-    def _merge(self, warps, threshold=150):
+    def _merge(self, warps, threshold):
         src = None
         centers = []
         valid_inds = []
@@ -163,22 +170,26 @@ class Stitch():
 
         return src, np.array(centers)
 
-    def compute(self, kills=False):
+    def compute(self, threshold=250, kills=False):  # verdansk 150
+        # TODO: need a better way to evaluate threshold
         warps = self._warp(kills)
         print('Finished warping images.')
-        self.path_src, self.path_center = self._merge(warps)
+        self.path_src, self.path_center = self._merge(warps, threshold)
+        while self.path_src is None:
+            threshold += 50
+            self.path_src, self.path_center = self._merge(warps, threshold)
         print('Finished merging images.')
 
     def draw_single(self, index):
         assert index < len(
             self.images), f'Invalid index specified. Must be within [0,{len(self.images) - 1}]'
-        imga = self.images[index]
+        # self._combine(self.images[index], self.bgimage, verbose=True)
         fig, ax = plt.subplots(figsize=(5, 5))
-        ax.imshow(cv2.cvtColor(imga, cv2.COLOR_BGR2RGB))
+        ax.imshow(cv2.cvtColor(self.images[index], cv2.COLOR_BGR2RGB))
         ax.axis('off')
         plt.show()
 
-    def draw(self, filename=None):
+    def draw(self, cmap=plt.cm.cool, filename=None):
         # Blend the warped image and the destination image
         alpha = 0.45
         beta = (1.0 - alpha)
@@ -187,8 +198,16 @@ class Stitch():
 
         fig, ax = plt.subplots(figsize=(9, 9))
         ax.imshow(cv2.cvtColor(dst_warp_blended, cv2.COLOR_BGR2RGB))
-        ax.plot(self.path_center[:, 0], self.path_center[:, 1], 'x-', color='red', linewidth=1.,
-                markersize=4, mec='white')
+        # solid color
+        # ax.plot(self.path_center[:, 0], self.path_center[:, 1], 'x-', color='red', linewidth=1.,
+        #         markersize=4, mec='white')
+        # multiple colors
+        xy = np.vstack([self.path_center[:, 0], self.path_center[:, 1]]).T
+        color = [cmap(i*2) for i in np.linspace(0, 1, xy.size)]
+        for i, (start, stop) in enumerate(zip(xy[:-1], xy[1:])):
+            x, y = zip(start, stop)
+            ax.plot(x, y, 'x-', color=color[i],
+                    linewidth=1., markersize=4, mec='white')
         ax.axis('off')
         fig.tight_layout()
         if filename:
