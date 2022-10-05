@@ -5,6 +5,9 @@ import time
 import cv2
 import sys
 import os
+from PIL import Image
+import pytesseract
+
 
 
 class Stitch():
@@ -15,8 +18,12 @@ class Stitch():
         # huskerrs mini_params (27, 286), (41, 300)
         if resolution == 1080:
             mini_params = ((21, 191), (29, 199))
+            kill_params = ((21, 191), (29, 199))
+            params = [mini_params, kill_params]
         elif resolution == 1440:
             mini_params = ((27, 286), (41, 300))
+            kill_params = ((40, 75), (1800, 1850))
+            params = [mini_params, kill_params]
         else:
             raise AssertionError('Invalid resolution, must be 1080 or 1440.')
 
@@ -29,7 +36,7 @@ class Stitch():
             self.bgimage = self.bgimage[240:1720, 280:1660]
 
         self.images = self._video_to_images(
-            mini_params, capture_rate, max_frames)
+            params, capture_rate, max_frames)
 
         descriptors = [
             cv2.xfeatures2d.SIFT_create,
@@ -56,10 +63,12 @@ class Stitch():
         str = f'Stitch({self.capfilename}, {self.bgfilename})'
         return str
 
-    def _video_to_images(self, mini_params, capture_rate=1, max_frames=-1):
+    def _video_to_images(self, params, capture_rate=1, max_frames=-1):
         start_t = time.time()
         video = cv2.VideoCapture(self.capfilename)
         images = []
+        mini_params = params[0]
+        kill_params = params[1]
         fps = video.get(cv2.CAP_PROP_FPS)
         print(f'{fps=:.3f}, capturing frame every {capture_rate} seconds.')
 
@@ -79,6 +88,7 @@ class Stitch():
         cv2.destroyAllWindows()
 
         images = np.array(images)
+        kills = np.array(images)
         if mini_params is not None:
             # different capture resolutions will have different minimap locations
             assert len(mini_params) == 2 and len(
@@ -86,6 +96,16 @@ class Stitch():
                 'Invalid mini_params. Must be ((min,max),(min,max))'
             images = images[:, mini_params[0][0]:mini_params[0][1],
                             mini_params[1][0]:mini_params[1][1]]
+
+            assert len(kill_params) == 2 and len(
+                kill_params[0]) == 2 and len(kill_params[1]) == 2, \
+                'Invalid kill_params. Must be ((min,max),(min,max))'
+            kills = kills[:, kill_params[0][0]:kill_params[0][1],
+                            kill_params[1][0]:kill_params[1][1]]
+            img = cv2.resize(kills[1], None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            print(cv2.imwrite('kills.png', img))
+            print("Kills in current frame: " + pytesseract.image_to_string(img)[1:])
         print(f'Finished in {time.time() - start_t:.3f}')
 
         return images
