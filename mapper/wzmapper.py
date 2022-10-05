@@ -89,6 +89,7 @@ class Stitch():
 
         images = np.array(images)
         kills = np.array(images)
+        killArray = []
         if mini_params is not None:
             # different capture resolutions will have different minimap locations
             assert len(mini_params) == 2 and len(
@@ -102,11 +103,15 @@ class Stitch():
                 'Invalid kill_params. Must be ((min,max),(min,max))'
             kills = kills[:, kill_params[0][0]:kill_params[0][1],
                             kill_params[1][0]:kill_params[1][1]]
-            img = cv2.resize(kills[1], None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            print(cv2.imwrite('kills.png', img))
-            print("Kills in current frame: " + pytesseract.image_to_string(img)[1:])
+            for i in range(len(kills)):
+                img = cv2.resize(kills[i], None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                #print("Kills in current frame: " + pytesseract.image_to_string(img)[1:])
+                cv2.imwrite(f'kills-{i}.png', img)
+                killCount = pytesseract.image_to_string(img)[1:]
+                killArray.append(killCount)
         print(f'Finished in {time.time() - start_t:.3f}')
+        print(f'Kills: {killArray}')
 
         return images
 
