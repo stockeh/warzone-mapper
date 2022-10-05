@@ -10,9 +10,16 @@ import os
 class Stitch():
 
     def __init__(self, capfilename, bgfilename, capture_rate=1, max_frames=-1,
-                 mini_params=((27, 286), (41, 300)), method='sift') -> None:
+                 mini_param=1080, method='sift') -> None:
         # stock mini_params (21, 191), (29, 199)
         # huskerrs mini_params (27, 286), (41, 300)
+        if mini_param == 1080:
+            mini_params = ((21, 191), (29, 199))
+        elif mini_param == 1440:
+            mini_params = ((27, 286), (41, 300))
+        else:
+            raise AssertionError('Invalid mini_param, must be 1080 or 1440.')
+
         self.capfilename = capfilename
         self.bgfilename = bgfilename
 
